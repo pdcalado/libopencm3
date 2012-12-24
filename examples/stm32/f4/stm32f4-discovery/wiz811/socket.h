@@ -28,6 +28,10 @@
 #define SOCKET_STATUS_LASTACK WIZ_SNSR_LASTACK
 #define SOCKET_STATUS_ARP WIZ_SNSR_ARP
 
+// Socket mem size
+#define S_TXMEM_SIZE(_socket, _tmsr) \
+  (1024 << ((_tmsr >> (_socket * 2)) & 0x03))
+
 struct socket_init
 {
   u8 id;
@@ -170,14 +174,14 @@ u8 socket_clear_interrupt(u8 socket, u8 ints)
 
 u8 socket_setup(socket_init_t sinit)
 {
-  /* if (!wiz811_socket_dest_mac(sinit->id, sinit->dest_mac)) */
-  /*   return 0; */
+  if (!wiz811_socket_dest_mac(sinit->id, sinit->dest_mac))
+    return 0;
 
-  /* if (!wiz811_socket_dest_ip(sinit->id, sinit->dest_ip)) */
-  /*   return 0; */
+  if (!wiz811_socket_dest_ip(sinit->id, sinit->dest_ip))
+    return 0;
 
-  /* if (!wiz811_socket_dest_port(sinit->id, sinit->dest_port)) */
-  /*   return 0; */
+  if (!wiz811_socket_dest_port(sinit->id, sinit->dest_port))
+    return 0;
 
   if (!wiz811_socket_source_port(sinit->id, sinit->source_port))
     return 0;
@@ -185,8 +189,27 @@ u8 socket_setup(socket_init_t sinit)
   return 1;
 }
 
+u16 socket_compute_base_address(u8 socket, u8 tmsr)
+{
+  u16 base = WIZ_S0_BASE;
+  u8 i;
+
+  for (i = 0; i < socket; ++i)
+    base += S_TXMEM_SIZE(socket, tmsr);
+
+  return base;
+}
+
 u8 socket_write(u8 socket, u8* data, u16 size)
 {
+  u8 tmsr;
+
+  if (!wiz811_read_reg(WIZ_TMSR, &tmsr))
+    return 0;
+  
+  u16 mask = S_TXMEM_SIZE(socket, tmsr) - 1;
+  u16 base = socket_compute_base_address(socket, tmsr);
+
   u16 free_size;
   if (!socket_get_free_size(socket, &free_size))
     return 0;
@@ -198,12 +221,12 @@ u8 socket_write(u8 socket, u8* data, u16 size)
   if (!socket_get_txwr(socket, &txwr))
     return 0;
 
-  u16 offset = txwr & 0x07FF;
-  u16 start_address = 0x4000 + offset;
+  u16 offset = txwr & mask;
+  u16 start_address = base + offset;
 
-  if (offset + size > 0x07FF + 1)
+  if (offset + size > mask + 1)
   {
-    u16 upper_size = 0x07FF + 1 - offset;
+    u16 upper_size = mask + 1 - offset;
     if (!wiz811_write_multiple_reg(start_address, data, upper_size))
       return 0;
 

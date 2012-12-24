@@ -236,6 +236,9 @@
 // Socket n RX Read Pointer Register
 #define WIZ_SNRXRD_0 0x0428
 
+// Socket 0 base address
+#define WIZ_S0_BASE 0x4000;
+
 #define NUM_ATTEMPTS 10
 
 // GPIO setup

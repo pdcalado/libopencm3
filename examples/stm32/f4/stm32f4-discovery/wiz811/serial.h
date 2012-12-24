@@ -28,8 +28,6 @@
 #include <stdio.h>
 #include <errno.h>
 
-#define CHAR_LIMIT 50
-
 void serial_setup(void)
 {
 #if DEBUG
@@ -58,9 +56,9 @@ void serial_setup(void)
 #endif
 }
 
+#if DEBUG
 int _write(int file, char *ptr, int len)
 {
-#if DEBUG
   if (file == 1)
   {
     u8 i;
@@ -73,13 +71,9 @@ int _write(int file, char *ptr, int len)
 
   errno = EIO;
   return -1;
-#else
-  (void)file;
-  (void)ptr;
-  (void)len;
-
-  return 0;
-#endif
 }
+#else
+#  define printf(...) do { } while(0)
+#endif
 
 #endif

@@ -27,7 +27,6 @@
 #include <libopencm3/stm32/f4/gpio.h>
 #include "leds.h"
 #include "serial.h"
-#include "wiz811.h"
 #include "connection.h"
 
 /* Set STM32 to 168 MHz. */
@@ -52,6 +51,7 @@ int main(void)
     if (!udp_transmission())
     {
       led_set(LED_RED);
+      printf("udp transmission failed\r\n");
     }
     else
     {
@@ -75,6 +75,7 @@ int main(void)
   else
   {
     led_set(LED_RED);
+    printf("connection setup failed\r\n");
   }
 
   return 0;

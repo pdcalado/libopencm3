@@ -1,5 +1,5 @@
 #ifndef CONNECTION_H
-#define CONNECTIONH
+#define CONNECTION_H
 
 #include "serial.h"
 #include "wiz811.h"
@@ -104,16 +104,6 @@ u8 udp_transmission(void)
     if (!socket_get_status(0, &status))
       return 0;
 
-  // Set remote ip and port
-  if (!wiz811_socket_dest_ip(0, sock_init.dest_ip))
-    return 0;
-
-  if (!wiz811_socket_dest_port(0, sock_init.dest_port))
-    return 0;
-
-  if (!wiz811_socket_dest_mac(0, sock_init.dest_mac))
-    return 0;
-
   u8 data[] = {6, 91, 10, 53, 63};
 
   if (!socket_write(0, data, 5))
@@ -133,7 +123,10 @@ u8 udp_transmission(void)
       break;
 
     if (ints & SOCKET_INT_TIMEOUT)
+    {
+      printf("timed out\r\n");
       return 0;
+    }
   }
 
   if (!socket_close(0))
