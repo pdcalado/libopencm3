@@ -455,29 +455,55 @@ void ip_to_bytes(char* ip_addr, u8* data)
       index++;
     }
   }
-
-  serial_send("out");
 }
 
-inline void mac_to_bytes(char* mac_addr, u8* data)
+void mac_to_bytes(char* mac_addr, u8* data)
 {
-  ip_to_bytes(mac_addr, data);
+  unsigned index = 0;
+
+  u8 len = strlen(mac_addr);
+  u8 i;
+
+  for (i = 0; i < len; ++i)
+  {
+    char c = mac_addr[i];
+
+    if (c >= '0' && c <= '9')
+    {
+      data[index] <<= 4;
+      data[index] |= mac_addr[i] - '0';
+    }
+    else if (c >= 'a' && c <= 'f')
+    {
+      data[index] <<= 4;
+      data[index] |= 10 + (u8)c - 'a';
+    }
+    else if (c >= 'A' && c <= 'F')
+    {
+      data[index] <<= 4;
+      data[index] |= 10 + (u8)c - 'A';
+    }
+    else
+    {
+      index++;
+    }
+  }
 }
 
 // Write ip address to set of registers
-inline u8 wiz811_write_ip_bytes(u8 start_reg, u8* data)
+inline u8 wiz811_write_ip_bytes(u16 start_reg, u8* data)
 {
   return wiz811_write_multiple_reg(start_reg, data, 4);
 }
 
 // Read ip address from set of registers
-inline u8 wiz811_read_ip_bytes(u8 start_reg, u8* data)
+inline u8 wiz811_read_ip_bytes(u16 start_reg, u8* data)
 {
   return wiz811_read_multiple_reg(start_reg, data, 4);
 }
 
 // Write ip address as array of chars
-u8 wiz811_write_ip(u8 start_reg, char* ip_addr)
+u8 wiz811_write_ip(u16 start_reg, char* ip_addr)
 {
   u8 data[4] = {0};
 
@@ -569,27 +595,17 @@ u8 wiz811_basic_init(wiz_init_t winit)
 // Set network information
 u8 wiz811_network_config(wiz_net_config_t netconf)
 {
-  serial_send("got in\r\n");
-
   if (!wiz811_write_ip(WIZ_GWR, netconf->gwr_addr))
     return 0;
-
-  serial_send("ip configured\r\n");
 
   if (!wiz811_write_ip(WIZ_SUBR, netconf->subnet_addr))
     return 0;
 
-  serial_send("subnet configured\r\n");
-
   if (!wiz811_write_ip(WIZ_SIPR, netconf->source_addr))
     return 0;
 
-  serial_send("source address configured\r\n");
-
   if (!wiz811_write_mac(WIZ_SHAR, netconf->mac_addr))
     return 0;
-
-  serial_send("mac configured\r\n");
 
   return 1;
 }
@@ -597,38 +613,38 @@ u8 wiz811_network_config(wiz_net_config_t netconf)
 // Set socket mode
 inline u8 wiz811_set_socket_mode(u16 socket, u8 mode)
 {
-  return wiz811_write_reg(WIZ_SNMR_0 + (socket << 8), mode);
+  return wiz811_write_reg(WIZ_SNMR_0 | (socket << 8), mode);
 }
 
 // Socket command
 inline u8 wiz811_socket_command(u16 socket, u8 command)
 {
-  return wiz811_write_reg(WIZ_SNCR_0 + (socket << 8), command);
+  return wiz811_write_reg(WIZ_SNCR_0 | (socket << 8), command);
 }
 
 // Socket status
 inline u8 wiz811_socket_status(u16 socket, u8* status)
 {
-  return wiz811_read_reg(WIZ_SNSR_0 + (socket << 8), status);
+  return wiz811_read_reg(WIZ_SNSR_0 | (socket << 8), status);
 }
 
 // Socket destination hardware address
 inline u8 wiz811_socket_dest_mac(u16 socket, char* mac)
 {
-  return wiz811_write_mac(WIZ_DHAR_0 + (socket << 8), mac);
+  return wiz811_write_mac(WIZ_DHAR_0 | (socket << 8), mac);
 }
 
 // Socket destination ip address
 inline u8 wiz811_socket_dest_ip(u16 socket, char* ip)
 {
-  return wiz811_write_ip(WIZ_DIPR_0 + (socket << 8), ip);
+  return wiz811_write_ip(WIZ_DIPR_0 | (socket << 8), ip);
 }
 
 // Set destination port
 u8 wiz811_socket_dest_port(u16 socket, u16 port)
 {
-  if (wiz811_write_reg(WIZ_DPORT_0 + (socket << 8), port >> 8))
-    return wiz811_write_reg(WIZ_DPORT_0 + (socket << 8) + 1, port);
+  if (wiz811_write_reg(WIZ_DPORT_0 | (socket << 8), port >> 8))
+    return wiz811_write_reg((WIZ_DPORT_0 | (socket << 8)) + 1, port);
 
   return 0;
 }
@@ -636,8 +652,8 @@ u8 wiz811_socket_dest_port(u16 socket, u16 port)
 // Set source port
 u8 wiz811_socket_source_port(u16 socket, u16 port)
 {
-  if (wiz811_write_reg(WIZ_SSPR_0 + (socket << 8), port >> 8))
-    return wiz811_write_reg(WIZ_SSPR_0 + (socket << 8) + 1, port);
+  if (wiz811_write_reg(WIZ_SSPR_0 | (socket << 8), port >> 8))
+    return wiz811_write_reg((WIZ_SSPR_0 | (socket << 8)) + 1, port);
 
   return 0;
 }

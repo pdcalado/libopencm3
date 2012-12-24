@@ -27,6 +27,7 @@
 #include <libopencm3/stm32/f4/gpio.h>
 #include "leds.h"
 #include "serial.h"
+#include "wiz811.h"
 #include "connection.h"
 
 /* Set STM32 to 168 MHz. */
@@ -49,9 +50,27 @@ int main(void)
     led_set(LED_GREEN);
 
     if (!udp_transmission())
+    {
       led_set(LED_RED);
+    }
     else
+    {
       led_set(LED_BLUE);
+
+      u8 ints;
+
+      if (!wiz811_read_reg(WIZ_IR, &ints))
+	led_toggle(LED_GREEN);
+
+      if (ints & WIZ_IR_CONFLICT)
+      	led_set(LED_RED);
+
+      if (ints & WIZ_IR_UNREACH)
+	led_set(LED_RED);
+
+      /* if (ints & WIZ_IR_S0INT) */
+      /* 	led_set(LED_RED); */
+    }
   }
   else
   {

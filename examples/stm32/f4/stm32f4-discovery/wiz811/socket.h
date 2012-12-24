@@ -108,7 +108,7 @@ u8 socket_get_free_size(u8 socket, u16* size)
   if (!wiz811_read_reg(WIZ_SNTXFSR_0 + (socket << 8) + 1, &temp))
     return 0;
 
-  *size += temp;
+  *size |= temp;
 
   return 1;
 }
@@ -125,7 +125,7 @@ u8 socket_get_txwr(u8 socket, u16* addr)
   if (!wiz811_read_reg(WIZ_SNTXWR_0 + (socket << 8) + 1, &temp))
     return 0;
 
-  *addr += temp;
+  *addr |= temp;
 
   return 1;
 }
@@ -142,7 +142,7 @@ u8 socket_get_txrr(u8 socket, u16* addr)
   if (!wiz811_read_reg(WIZ_SNTXRR_0 + (socket << 8) + 1, &temp))
     return 0;
 
-  *addr += temp;
+  *addr |= temp;
 
   return 1;
 }
@@ -152,33 +152,32 @@ u8 socket_set_txwr(u8 socket, u16 addr)
   if (!wiz811_write_reg(WIZ_SNTXWR_0 + (socket << 8), addr << 8))
     return 0;
 
-  if (!wiz811_write_reg(WIZ_SNTXWR_0 + (socket << 8) + 1, addr))
+  if (!wiz811_write_reg(WIZ_SNTXWR_0 + (socket << 8) + 1, addr & 0xFF))
     return 0;
 
   return 1;
 }
 
-u8 socket_set_txrr(u8 socket, u16 addr)
+u8 socket_get_interrupts(u8 socket, u8* ints)
 {
-  if (!wiz811_write_reg(WIZ_SNTXRR_0 + (socket << 8), addr << 8))
-    return 0;
+  return wiz811_read_reg(WIZ_SNIR_0 + (socket << 8), ints);
+}
 
-  if (!wiz811_write_reg(WIZ_SNTXRR_0 + (socket << 8) + 1, addr))
-    return 0;
-
-  return 1;
+u8 socket_clear_interrupt(u8 socket, u8 ints)
+{
+  return wiz811_write_reg(WIZ_SNIR_0 + (socket << 8), ints);
 }
 
 u8 socket_setup(socket_init_t sinit)
 {
-  if (!wiz811_socket_dest_mac(sinit->id, sinit->dest_mac))
-    return 0;
+  /* if (!wiz811_socket_dest_mac(sinit->id, sinit->dest_mac)) */
+  /*   return 0; */
 
-  if (!wiz811_socket_dest_ip(sinit->id, sinit->dest_ip))
-    return 0;
+  /* if (!wiz811_socket_dest_ip(sinit->id, sinit->dest_ip)) */
+  /*   return 0; */
 
-  if (!wiz811_socket_dest_port(sinit->id, sinit->dest_port))
-    return 0;
+  /* if (!wiz811_socket_dest_port(sinit->id, sinit->dest_port)) */
+  /*   return 0; */
 
   if (!wiz811_socket_source_port(sinit->id, sinit->source_port))
     return 0;

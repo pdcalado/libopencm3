@@ -83,6 +83,7 @@ void serial_send(char* str)
 }
 
 // REPLACE ASAP
+#if 0
 void serial_write_ip(u8* data)
 {
   u8 i;
@@ -110,6 +111,7 @@ void serial_write_ip(u8* data)
       serial_put('.');
   }
 }
+#endif
 
 int _write(int file, char *ptr, int len)
 {
