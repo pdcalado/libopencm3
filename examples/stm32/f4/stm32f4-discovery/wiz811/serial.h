@@ -28,7 +28,7 @@
 #include <stdio.h>
 #include <errno.h>
 
-#define CHAR_LIMIT 30
+#define CHAR_LIMIT 50
 
 void serial_setup(void)
 {
@@ -58,61 +58,6 @@ void serial_setup(void)
 #endif
 }
 
-inline void serial_put(u8 value)
-{
-#if DEBUG
-  usart_send_blocking(USART2, value);
-#else
-  (void)value;
-#endif
-}
-
-void serial_send(char* str)
-{
-#if DEBUG
-  u8 i = 0;
-
-  while (((*str) != '\0') || (i < CHAR_LIMIT))
-  {
-    serial_put(*str++);
-    ++i;
-  }
-#else
-  (void)str;
-#endif
-}
-
-// REPLACE ASAP
-#if 0
-void serial_write_ip(u8* data)
-{
-  u8 i;
-
-  for (i = 0; i < 4; ++i)
-  {
-    if (data[i] / 100)
-    {
-      serial_put((data[i] / 100) + '0');
-      serial_put(((data[i] % 100) / 10) + '0');
-      serial_put((data[i] % 10) + '0');
-    }
-    else
-    {
-      if ((data[i] % 100) / 10)
-	serial_put(((data[i] % 100) / 10) + '0');
-
-      if (data[i] % 10)
-	serial_put((data[i] % 10) + '0');
-      else
-	serial_put('0');
-    }
-
-    if (i != 3)
-      serial_put('.');
-  }
-}
-#endif
-
 int _write(int file, char *ptr, int len)
 {
 #if DEBUG
@@ -121,7 +66,7 @@ int _write(int file, char *ptr, int len)
     u8 i;
 
     for (i = 0; i < len; ++i)
-      serial_put((u8)*ptr++);
+      usart_send_blocking(USART2, (u8)*ptr++);
 
     return i;
   }

@@ -384,7 +384,7 @@ u8 wiz811_read_reg(u16 addr, u8* data)
   }
 
   if (!res)
-    serial_send("failed to read\r\n");
+    printf("failed to read\r\n");
 
   return res;
 }
@@ -407,7 +407,7 @@ u8 wiz811_write_reg(u16 addr, u8 value)
   }
 
   if (!res)
-    serial_send("failed to write\r\n");
+    printf("failed to write\r\n");
 
   return res;
 }

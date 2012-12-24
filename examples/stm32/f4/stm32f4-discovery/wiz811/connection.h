@@ -37,7 +37,7 @@ u8 connection_setup(void)
   for (i = 0; i < 120000000; i++)
     __asm__("nop");
 
-  serial_send("wiz setup done\r\n");
+  printf("wiz setup done\r\n");
 
   // Configure
   struct wiz_init winit;
@@ -49,7 +49,7 @@ u8 connection_setup(void)
   if (!wiz811_basic_init(&winit))
     return 0;
 
-  /* serial_send("wiz basic init done\r\n"); */
+  printf("wiz basic init done\r\n");
 
   // Configure network
   struct wiz_net_config wnetconf;
@@ -67,7 +67,7 @@ u8 connection_setup(void)
   if (!wiz811_network_config(&wnetconf))
     return 0;
 
-  /* serial_send("network configured\r\n"); */
+  printf("network configured\r\n");
 
   // Configure sockets
   if (!wiz811_set_socket_mode(0, SOCKET_MODE_0) || !wiz811_set_socket_mode(1, SOCKET_MODE_1) ||
@@ -94,8 +94,6 @@ u8 udp_transmission(void)
   // Setup socket
   socket_setup(&sock_init);
 
-#if 1
-
   // Open socket
   if (!socket_open(0))
     return 0;
@@ -116,21 +114,12 @@ u8 udp_transmission(void)
   if (!wiz811_socket_dest_mac(0, sock_init.dest_mac))
     return 0;
 
-  // RECONFIGURE SOURCE IP AND MAC OR ELSE...
-#if 1
-  if (!wiz811_write_ip(WIZ_SIPR, IP_ADDRESS))
-    return 0;
-
-  if (!wiz811_write_mac(WIZ_SHAR, MAC_ADDRESS))
-    return 0;
-#endif
-
   u8 data[] = {6, 91, 10, 53, 63};
 
   if (!socket_write(0, data, 5))
     return 0;
 
-  if (!socket_sendmac(0))
+  if (!socket_send(0))
     return 0;
 
   u8 ints;
@@ -147,21 +136,12 @@ u8 udp_transmission(void)
       return 0;
   }
 
-  u16 txrr, txwr;
-  socket_get_txwr(0, &txwr);
-  socket_get_txrr(0, &txrr);
-
-  if (txwr != txrr)
-    return 0;
-
   if (!socket_close(0))
     return 0;
 
   while (status != SOCKET_STATUS_CLOSED)
     if (!socket_get_status(0, &status))
       return 0;
-
-#endif
 
   return 1;
 }

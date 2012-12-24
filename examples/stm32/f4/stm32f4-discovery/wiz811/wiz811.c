@@ -18,7 +18,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#define DEBUG 0
+#define DEBUG 1
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -43,7 +43,7 @@ int main(void)
   leds_setup(LED_GREEN | LED_RED | LED_BLUE);
   serial_setup();
 
-  serial_send("Welcome\r\n");
+  printf("Welcome\r\n");
 
   if (connection_setup())
   {
