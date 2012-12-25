@@ -27,12 +27,76 @@
 #include <libopencm3/stm32/f4/gpio.h>
 #include "leds.h"
 #include "serial.h"
+#include "lis302dl.h"
 #include "connection.h"
+
+typedef enum
+{
+  ST_INIT,
+  ST_UPDATE,
+  ST_RELEASE,
+  ST_ERROR,
+  ST_DONE
+} main_state;
+
+main_state m_state;
 
 /* Set STM32 to 168 MHz. */
 void clock_setup(void)
 {
   rcc_clock_setup_hse_3v3(&hse_8mhz_3v3[CLOCK_3V3_168MHZ]);
+}
+
+u8 initialize(void)
+{
+  printf("Welcome\r\n");
+
+  led_set(LED_GREEN);
+
+  lis_setup();
+
+  if (!lis_basic_init())
+    return 0;
+
+  if (!connection_setup())
+    return 0;
+
+  return 1;
+}
+
+u8 update(void)
+{
+  printf("Updating\r\n");
+  led_set(LED_BLUE);
+  led_clear(LED_GREEN);
+
+  return 1;
+}
+
+u8 release(void)
+{
+  printf("Releasing\r\n");
+
+  if (!lis_power_down())
+    return 0;
+
+  return 1;
+}
+
+void error(void)
+{
+  printf("Error\r\n");
+  led_clear(LED_GREEN);
+  led_clear(LED_BLUE);
+  led_set(LED_RED);
+}
+
+void done(void)
+{
+  printf("Done\r\n");
+  led_clear(LED_RED);
+  led_set(LED_GREEN);
+  led_set(LED_BLUE);
 }
 
 int main(void)
@@ -42,12 +106,36 @@ int main(void)
   leds_setup(LED_GREEN | LED_RED | LED_BLUE);
   serial_setup();
 
-  printf("Welcome\r\n");
+  m_state = ST_INIT;
 
-  if (connection_setup())
+  while (1)
   {
-    led_set(LED_GREEN);
+    switch (m_state)
+    {
+      case ST_INIT:
+	if (!initialize())
+	  m_state = ST_ERROR;
+	break;
+      case ST_UPDATE:
+	if (!update())
+	  m_state = ST_ERROR;
+	break;
+      case ST_RELEASE:
+	if (!release())
+	  m_state = ST_ERROR;
+	break;
+      case ST_ERROR:
+	error();
+	break;
+      default:
+	break;
+    }
 
+    if ((m_state == ST_DONE))
+      return 0;
+  }
+
+#if 0
     if (!udp_transmission())
     {
       led_set(LED_RED);
@@ -77,6 +165,7 @@ int main(void)
     led_set(LED_RED);
     printf("connection setup failed\r\n");
   }
+#endif
 
   return 0;
 }
