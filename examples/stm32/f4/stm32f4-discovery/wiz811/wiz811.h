@@ -661,4 +661,22 @@ u8 wiz811_socket_source_port(u16 socket, u16 port)
   return 0;
 }
 
+// Get received size
+u8 wiz811_socket_recv_size(u16 socket, u16* size)
+{
+  u8 temp;
+
+  if (wiz811_read_reg(WIZ_SNRXRSR_0 | (socket << 8), &temp))
+    return 0;
+
+  *size = (u16)temp << 8;
+
+  if (wiz811_read_reg((WIZ_SNRXRSR_0 | (socket << 8)) + 1, &temp))
+    return 0;
+
+  *size |= temp;
+
+  return 1;
+}
+
 #endif

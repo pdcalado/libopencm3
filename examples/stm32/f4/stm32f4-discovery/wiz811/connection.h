@@ -3,6 +3,7 @@
 
 #include "serial.h"
 #include "wiz811.h"
+#include "udp.h"
 #include "socket.h"
 
 #define CONN_INTS WIZ_IMR_IR7 | WIZ_IMR_IR6 | WIZ_IMR_IR0
@@ -17,8 +18,8 @@
 
 #define DESTINATION_MAC "00:26:18:14:ae:17"
 #define DESTINATION_IP "192.168.100.2"
-#define DESTINATION_PORT 6002
-#define SOURCE_PORT 6002
+#define DESTINATION_PORT 6009
+#define SOURCE_PORT 6009
 
 #define RX_MEM WIZ_MEM_2K_EACH
 #define TX_MEM WIZ_MEM_2K_EACH
@@ -77,17 +78,16 @@ u8 connection_setup(void)
   return 1;
 }
 
+
+
 // UDP transmission attempt
-u8 udp_transmission(void)
+u8 udp_transmission(u8* data, u8 size)
 {
   struct socket_init sock_init;
   sock_init.id = 0;
 
-  char* dest_mac = DESTINATION_MAC;
-  char* dest_ip = DESTINATION_IP;
-
-  sock_init.dest_mac = &dest_mac[0];
-  sock_init.dest_ip = &dest_ip[0];
+  sock_init.dest_mac = DESTINATION_MAC;
+  sock_init.dest_ip = DESTINATION_IP;
   sock_init.dest_port = DESTINATION_PORT;
   sock_init.source_port = SOURCE_PORT;
 
@@ -104,9 +104,7 @@ u8 udp_transmission(void)
     if (!socket_get_status(0, &status))
       return 0;
 
-  u8 data[] = {6, 91, 10, 53, 63};
-
-  if (!socket_write(0, data, 5))
+  if (!socket_write(0, data, size))
     return 0;
 
   if (!socket_send(0))

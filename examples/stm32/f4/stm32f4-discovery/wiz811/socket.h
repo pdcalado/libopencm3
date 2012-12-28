@@ -3,6 +3,9 @@
 
 #include "wiz811.h"
 
+#include <stdio.h>
+#include <string.h>
+
 // Socket interrupt events
 #define SOCKET_INT_SENDOK WIZ_SNIR_SENDOK
 #define SOCKET_INT_TIMEOUT WIZ_SNIR_TIMEOUT
@@ -29,7 +32,7 @@
 #define SOCKET_STATUS_ARP WIZ_SNSR_ARP
 
 // Socket mem size
-#define S_TXMEM_SIZE(_socket, _tmsr) \
+#define S_MEM_SIZE(_socket, _tmsr)		\
   (1024 << ((_tmsr >> (_socket * 2)) & 0x03))
 
 struct socket_init
@@ -42,6 +45,18 @@ struct socket_init
 };
 
 typedef struct socket_init* socket_init_t;
+
+struct udp_header
+{
+  // Destinated ip address
+  u8 ip[4];
+  // Destinated port
+  u16 port;
+  // Data size
+  u16 size;
+};
+
+typedef struct udp_header* udp_header_t;
 
 inline u8 socket_open(u8 socket)
 {
@@ -189,13 +204,13 @@ u8 socket_setup(socket_init_t sinit)
   return 1;
 }
 
-u16 socket_compute_base_address(u8 socket, u8 tmsr)
+u16 socket_compute_base_address(u8 socket, u8 msr)
 {
   u16 base = WIZ_S0_BASE;
   u8 i;
 
   for (i = 0; i < socket; ++i)
-    base += S_TXMEM_SIZE(socket, tmsr);
+    base += S_MEM_SIZE(socket, msr);
 
   return base;
 }
@@ -207,7 +222,7 @@ u8 socket_write(u8 socket, u8* data, u16 size)
   if (!wiz811_read_reg(WIZ_TMSR, &tmsr))
     return 0;
   
-  u16 mask = S_TXMEM_SIZE(socket, tmsr) - 1;
+  u16 mask = S_MEM_SIZE(socket, tmsr) - 1;
   u16 base = socket_compute_base_address(socket, tmsr);
 
   u16 free_size;
@@ -241,6 +256,121 @@ u8 socket_write(u8 socket, u8* data, u16 size)
   }
 
   if (!socket_set_txwr(socket, txwr + size))
+    return 0;
+
+  return 1;
+}
+
+u8 socket_recv_size(u8 socket, u16* size)
+{
+  return wiz811_socket_recv_size(socket, size);
+}
+
+u8 socket_get_rxrd(u8 socket, u16* rxrd)
+{
+  u8 temp;
+
+  if (!wiz811_read_reg(WIZ_SNRXRD_0 + (socket << 8), &temp))
+    return 0;
+
+  *rxrd = (u16)temp << 8;
+
+  if (!wiz811_read_reg(WIZ_SNRXRD_0 + (socket << 8) + 1, &temp))
+    return 0;
+
+  *rxrd |= temp;
+
+  return 1;
+}
+
+u8 socket_set_rxrd(u8 socket, u16 addr)
+{
+  if (!wiz811_write_reg(WIZ_SNRXRD_0 + (socket << 8), addr << 8))
+    return 0;
+
+  if (!wiz811_write_reg(WIZ_SNRXRD_0 + (socket << 8) + 1, addr & 0xFF))
+    return 0;
+
+  return 1;
+}
+
+u8 socket_read(u8 socket, udp_header_t header, u8* data)
+{
+  u8 rmsr;
+
+  if (!wiz811_read_reg(WIZ_RMSR, &rmsr))
+    return 0;
+
+  u16 recv_size;
+  if (!socket_recv_size(socket, &recv_size))
+    return 0;
+
+  u16 mask = S_MEM_SIZE(socket, rmsr) - 1;
+  u16 base = socket_compute_base_address(socket, rmsr);
+
+  u16 rxrd;
+  if (!socket_get_rxrd(socket, &rxrd))
+    return 0;
+
+  // compute offset address
+  u16 offset = rxrd & mask;
+
+  u16 start_address = base + offset;
+
+  u8 header_size = 8;
+  u8 header_addr[8];
+
+  // if overflow
+  if ((offset + header_size) > mask)
+  {
+    u8 upper_size = mask + 1 - offset;
+
+    if (!wiz811_read_multiple_reg(start_address, &header_addr[0], upper_size))
+      return 0;
+
+    u16 left_size = header_size - upper_size;
+    if (!wiz811_read_multiple_reg(base, &header_addr[upper_size], left_size))
+      return 0;
+
+    offset = left_size;
+  }
+  else
+  {
+    if (!wiz811_read_multiple_reg(base, header_addr, header_size))
+      return 0;
+
+    offset += header_size;
+  }
+
+  // update start address
+  start_address = base + offset;
+
+  memcpy(header->ip, header_addr, 4);
+  header->port = ((u16)header_addr[4] << 8) | header_addr[5];
+  header->size = ((u16)header_addr[6] << 8) | header_addr[7];
+
+  data = malloc(sizeof(u8) * header->size);
+
+  if (offset + header->size > mask + 1)
+  {
+    u8 upper_size = mask + 1 - offset;
+
+    if (!wiz811_read_multiple_reg(start_address, data, upper_size))
+      return 0;
+
+    data += upper_size;
+
+    u8 left_size = header->size - upper_size;
+    if (!wiz811_read_multiple_reg(base, data, left_size))
+      return 0;
+  }
+  else
+  {
+    if (!wiz811_read_multiple_reg(start_address, data, header->size))
+      return 0;
+  }
+
+  if (!socket_set_rxrd(socket, rxrd + header_size + header->size))
     return 0;
 
   return 1;

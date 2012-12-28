@@ -41,6 +41,16 @@ typedef enum
 
 main_state m_state;
 
+struct motion_data
+{
+  u8 data[3];
+  u8 isnew;
+} m_data;
+
+typedef struct motion_data* motion_data_t;
+
+u8 cycles = 200;
+
 /* Set STM32 to 168 MHz. */
 void clock_setup(void)
 {
@@ -58,8 +68,12 @@ u8 initialize(void)
   if (!lis_basic_init())
     return 0;
 
+  m_data.isnew = 0;
+
   if (!connection_setup())
     return 0;
+
+  m_state = ST_UPDATE;
 
   return 1;
 }
@@ -70,6 +84,13 @@ u8 update(void)
   led_set(LED_BLUE);
   led_clear(LED_GREEN);
 
+  if (lis_check_new_xyz())
+  {
+    lis_read_xyz(m_data.data);
+    
+    udp_transmission(m_data.data, 3);
+  }
+
   return 1;
 }
 
@@ -79,6 +100,10 @@ u8 release(void)
 
   if (!lis_power_down())
     return 0;
+
+  led_set(LED_GREEN);
+
+  m_state = ST_DONE;
 
   return 1;
 }
@@ -131,6 +156,9 @@ int main(void)
 	break;
     }
 
+    if (!--cycles)
+      m_state = ST_RELEASE;
+    
     if ((m_state == ST_DONE))
       return 0;
   }
@@ -155,9 +183,6 @@ int main(void)
 
       if (ints & WIZ_IR_UNREACH)
 	led_set(LED_RED);
-
-      /* if (ints & WIZ_IR_S0INT) */
-      /* 	led_set(LED_RED); */
     }
   }
   else
