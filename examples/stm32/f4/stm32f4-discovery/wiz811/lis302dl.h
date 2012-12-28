@@ -254,4 +254,38 @@ u8 lis_power_down(void)
   return 0;
 }
 
+// Get configured G
+u8 lis_fs_g(void)
+{
+  u8 ctrl;
+  lis_read(LIS_CTRL1, &ctrl);
+
+  if (ctrl & LIS_CTRL1_FS_8G)
+    return 8;
+  else
+    return 2;
+}
+
+// Configure 2 or 8 g
+u8 lis_configure_g(u8 gs)
+{
+  u8 ctrl1;
+  lis_read(LIS_CTRL1, &ctrl1);
+
+  if (gs == 2)
+  {
+    lis_write(LIS_CTRL1, ctrl1 & ~LIS_CTRL1_FS_8G);
+    return 1;
+  }
+  else if (gs == 8)
+  {
+    lis_write(LIS_CTRL1, ctrl1 | LIS_CTRL1_FS_8G);
+    return 1;
+  }
+  else
+  {
+    return 0;
+  }
+}
+
 #endif

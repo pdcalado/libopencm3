@@ -33,7 +33,7 @@
 
 // Socket mem size
 #define S_MEM_SIZE(_socket, _tmsr)		\
-  (1024 << ((_tmsr >> (_socket * 2)) & 0x03))
+  (1024 << (((u16)_tmsr >> (_socket * 2)) & 0x0003))
 
 struct socket_init
 {
@@ -119,12 +119,12 @@ u8 socket_get_free_size(u8 socket, u16* size)
 {
   u8 temp;
 
-  if (!wiz811_read_reg(WIZ_SNTXFSR_0 + (socket << 8), &temp))
+  if (!wiz811_read_reg((WIZ_SNTXFSR_0 | (socket << 8)), &temp))
     return 0;
 
   *size = (u16)temp << 8;
 
-  if (!wiz811_read_reg(WIZ_SNTXFSR_0 + (socket << 8) + 1, &temp))
+  if (!wiz811_read_reg((WIZ_SNTXFSR_0 | (socket << 8)) + 1, &temp))
     return 0;
 
   *size |= temp;
@@ -136,12 +136,12 @@ u8 socket_get_txwr(u8 socket, u16* addr)
 {
   u8 temp;
 
-  if (!wiz811_read_reg(WIZ_SNTXWR_0 + (socket << 8), &temp))
+  if (!wiz811_read_reg((WIZ_SNTXWR_0 | (socket << 8)), &temp))
     return 0;
 
   *addr = (u16)temp << 8;
 
-  if (!wiz811_read_reg(WIZ_SNTXWR_0 + (socket << 8) + 1, &temp))
+  if (!wiz811_read_reg((WIZ_SNTXWR_0 | (socket << 8)) + 1, &temp))
     return 0;
 
   *addr |= temp;
@@ -168,7 +168,7 @@ u8 socket_get_txrr(u8 socket, u16* addr)
 
 u8 socket_set_txwr(u8 socket, u16 addr)
 {
-  if (!wiz811_write_reg(WIZ_SNTXWR_0 + (socket << 8), addr << 8))
+  if (!wiz811_write_reg(WIZ_SNTXWR_0 + (socket << 8), addr >> 8))
     return 0;
 
   if (!wiz811_write_reg(WIZ_SNTXWR_0 + (socket << 8) + 1, addr & 0xFF))
@@ -221,7 +221,7 @@ u8 socket_write(u8 socket, u8* data, u16 size)
 
   if (!wiz811_read_reg(WIZ_TMSR, &tmsr))
     return 0;
-  
+
   u16 mask = S_MEM_SIZE(socket, tmsr) - 1;
   u16 base = socket_compute_base_address(socket, tmsr);
 
@@ -242,11 +242,13 @@ u8 socket_write(u8 socket, u8* data, u16 size)
   if (offset + size > mask + 1)
   {
     u16 upper_size = mask + 1 - offset;
+
     if (!wiz811_write_multiple_reg(start_address, data, upper_size))
       return 0;
 
     u16 size_left = size - upper_size;
-    if (!wiz811_write_multiple_reg(start_address, data + upper_size, size_left))
+
+    if (!wiz811_write_multiple_reg(base, data + upper_size, size_left))
       return 0;
   }
   else
@@ -285,7 +287,7 @@ u8 socket_get_rxrd(u8 socket, u16* rxrd)
 
 u8 socket_set_rxrd(u8 socket, u16 addr)
 {
-  if (!wiz811_write_reg(WIZ_SNRXRD_0 + (socket << 8), addr << 8))
+  if (!wiz811_write_reg(WIZ_SNRXRD_0 + (socket << 8), addr >> 8))
     return 0;
 
   if (!wiz811_write_reg(WIZ_SNRXRD_0 + (socket << 8) + 1, addr & 0xFF))

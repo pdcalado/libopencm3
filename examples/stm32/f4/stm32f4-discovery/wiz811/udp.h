@@ -31,10 +31,8 @@ typedef struct udp_socket* udp_socket_t;
 // UDP socket initialization
 struct udp_socket_init
 {
-  // Socket id
-  u8 id;
   // Socket init struct
-  socket_init_t sock;
+  struct socket_init sock;
 };
 
 typedef struct udp_socket_init* udp_socket_init_t;
@@ -42,13 +40,13 @@ typedef struct udp_socket_init* udp_socket_init_t;
 // Setup udp socket
 u8 udp_socket_setup(udp_socket_t udp, udp_socket_init_t uinit)
 {
-  udp->id = uinit->id;
+  udp->id = uinit->sock.id;
   udp->state = UDP_IDLE;
   udp->to_send = 0;
   udp->size_read = 0;
 
   socket_init_t sinit;
-  sinit = uinit->sock;
+  sinit = &uinit->sock;
 
   // Setup socket
   return socket_setup(sinit);
@@ -125,6 +123,32 @@ int udp_update_tx(udp_socket_t udp)
   {
     udp->state = UDP_IDLE;
     udp->to_send = 0;
+
+    u32 timeout = 100000000;
+
+    while (1)
+    {
+      u16 txwr;
+      u16 txrr;
+      if (!socket_get_txwr(udp->id, &txwr))
+	return 0;
+
+      if (!socket_get_txrr(udp->id, &txrr))
+	return 0;
+
+      if (txwr != txrr)
+      {
+	--timeout;
+
+	if (!timeout)
+	  return 0;
+      }
+      else
+      {
+	break;
+      }
+    }
+
     return 2;
   }
 
@@ -132,6 +156,8 @@ int udp_update_tx(udp_socket_t udp)
   {
     udp->state = UDP_IDLE;
     udp->to_send = 0;
+    printf("timed out\r\n");
+
     return -1;
   }
 
@@ -140,19 +166,21 @@ int udp_update_tx(udp_socket_t udp)
 
 int udp_update(udp_socket_t udp)
 {
+  int rv = 1;
+
   switch (udp->state)
   {
     case UDP_IDLE:
-      if (!udp->size_read)
-      {
-	// check if we have received data
-	u16 recv_size;
-	if (!socket_recv_size(udp->id, &recv_size))
-	  return 0;
+      /* if (!udp->size_read) */
+      /* { */
+      /* 	// check if we have received data */
+      /* 	u16 recv_size; */
+      /* 	if (!socket_recv_size(udp->id, &recv_size)) */
+      /* 	  return 0; */
 
-	if (recv_size)
-	  udp->size_read = recv_size;
-      }
+      /* 	if (recv_size) */
+      /* 	  udp->size_read = recv_size; */
+      /* } */
 
       // if not then goto tx if there's data to be sent
       if (udp->to_send)
@@ -160,18 +188,19 @@ int udp_update(udp_socket_t udp)
 	udp->state = UDP_TX;
 
 	if (!socket_send(0))
-	  return 0;
+	  rv = 0;
 
-	udp_update(udp);
+	rv = udp_update(udp);
       }
       break;
     case UDP_TX:
-      return udp_update_tx(udp);
+      rv = (int)udp_update_tx(udp);
+      break;
     default:
       break;
   }
 
-  return 1;
+  return rv;
 }
 
 #endif

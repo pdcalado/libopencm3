@@ -43,13 +43,17 @@ main_state m_state;
 
 struct motion_data
 {
+  // Configured G top value
+  u8 fs_g;
+  // Motion data
   u8 data[3];
+  // Is this chunk new
   u8 isnew;
 } m_data;
 
 typedef struct motion_data* motion_data_t;
 
-u8 cycles = 200;
+u16 cycles = 0;
 
 /* Set STM32 to 168 MHz. */
 void clock_setup(void)
@@ -68,6 +72,10 @@ u8 initialize(void)
   if (!lis_basic_init())
     return 0;
 
+  // configure g
+
+  m_data.fs_g = lis_fs_g();
+
   m_data.isnew = 0;
 
   if (!connection_setup())
@@ -80,15 +88,24 @@ u8 initialize(void)
 
 u8 update(void)
 {
-  printf("Updating\r\n");
+  /* printf("Updating\r\n"); */
   led_set(LED_BLUE);
   led_clear(LED_GREEN);
 
   if (lis_check_new_xyz())
   {
     lis_read_xyz(m_data.data);
-    
-    udp_transmission(m_data.data, 3);
+
+    u8 data[4];
+    data[0] = m_data.fs_g;
+    memcpy(data + 1, m_data.data, 3);
+
+    u8 rv = connection_run(data, 4);
+
+    if (rv == 2)
+      ++cycles;
+    else if (!rv)
+      return 0;
   }
 
   return 1;
@@ -101,6 +118,9 @@ u8 release(void)
   if (!lis_power_down())
     return 0;
 
+  if (!connection_close())
+    return 0;
+
   led_set(LED_GREEN);
 
   m_state = ST_DONE;
@@ -110,7 +130,7 @@ u8 release(void)
 
 void error(void)
 {
-  printf("Error\r\n");
+  printf("Error at %d\r\n", cycles);
   led_clear(LED_GREEN);
   led_clear(LED_BLUE);
   led_set(LED_RED);
@@ -151,46 +171,18 @@ int main(void)
 	break;
       case ST_ERROR:
 	error();
+	m_state = ST_DONE;
 	break;
       default:
 	break;
     }
 
-    if (!--cycles)
+    if (cycles > 2000 && (m_state == ST_UPDATE))
       m_state = ST_RELEASE;
-    
-    if ((m_state == ST_DONE))
+
+    if (m_state == ST_DONE)
       return 0;
   }
-
-#if 0
-    if (!udp_transmission())
-    {
-      led_set(LED_RED);
-      printf("udp transmission failed\r\n");
-    }
-    else
-    {
-      led_set(LED_BLUE);
-
-      u8 ints;
-
-      if (!wiz811_read_reg(WIZ_IR, &ints))
-	led_toggle(LED_GREEN);
-
-      if (ints & WIZ_IR_CONFLICT)
-      	led_set(LED_RED);
-
-      if (ints & WIZ_IR_UNREACH)
-	led_set(LED_RED);
-    }
-  }
-  else
-  {
-    led_set(LED_RED);
-    printf("connection setup failed\r\n");
-  }
-#endif
 
   return 0;
 }
