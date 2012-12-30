@@ -204,9 +204,20 @@ u8 socket_setup(socket_init_t sinit)
   return 1;
 }
 
-u16 socket_compute_base_address(u8 socket, u8 msr)
+u16 socket_compute_tx_base_address(u8 socket, u8 msr)
 {
-  u16 base = WIZ_S0_BASE;
+  u16 base = WIZ_S0_TX_BASE;
+  u8 i;
+
+  for (i = 0; i < socket; ++i)
+    base += S_MEM_SIZE(socket, msr);
+
+  return base;
+}
+
+u16 socket_compute_rx_base_address(u8 socket, u8 msr)
+{
+  u16 base = WIZ_S0_RX_BASE;
   u8 i;
 
   for (i = 0; i < socket; ++i)
@@ -223,7 +234,7 @@ u8 socket_write(u8 socket, u8* data, u16 size)
     return 0;
 
   u16 mask = S_MEM_SIZE(socket, tmsr) - 1;
-  u16 base = socket_compute_base_address(socket, tmsr);
+  u16 base = socket_compute_tx_base_address(socket, tmsr);
 
   u16 free_size;
   if (!socket_get_free_size(socket, &free_size))
@@ -296,7 +307,7 @@ u8 socket_set_rxrd(u8 socket, u16 addr)
   return 1;
 }
 
-u8 socket_read(u8 socket, udp_header_t header, u8* data)
+int socket_read(u8 socket, udp_header_t header, u8** data)
 {
   u8 rmsr;
 
@@ -308,7 +319,7 @@ u8 socket_read(u8 socket, udp_header_t header, u8* data)
     return 0;
 
   u16 mask = S_MEM_SIZE(socket, rmsr) - 1;
-  u16 base = socket_compute_base_address(socket, rmsr);
+  u16 base = socket_compute_rx_base_address(socket, rmsr);
 
   u16 rxrd;
   if (!socket_get_rxrd(socket, &rxrd))
@@ -323,9 +334,9 @@ u8 socket_read(u8 socket, udp_header_t header, u8* data)
   u8 header_addr[8];
 
   // if overflow
-  if ((offset + header_size) > mask)
+  if ((offset + header_size) > mask + 1)
   {
-    u8 upper_size = mask + 1 - offset;
+    u16 upper_size = mask + 1 - offset;
 
     if (!wiz811_read_multiple_reg(start_address, &header_addr[0], upper_size))
       return 0;
@@ -338,7 +349,7 @@ u8 socket_read(u8 socket, udp_header_t header, u8* data)
   }
   else
   {
-    if (!wiz811_read_multiple_reg(base, header_addr, header_size))
+    if (!wiz811_read_multiple_reg(start_address, header_addr, header_size))
       return 0;
 
     offset += header_size;
@@ -351,28 +362,41 @@ u8 socket_read(u8 socket, udp_header_t header, u8* data)
   header->port = ((u16)header_addr[4] << 8) | header_addr[5];
   header->size = ((u16)header_addr[6] << 8) | header_addr[7];
 
-  data = malloc(sizeof(u8) * header->size);
+  if (!header->size)
+  {
+    if (!socket_set_rxrd(socket, rxrd + header_size))
+      return 0;
+
+    return -1;
+  }
+  else if (header->size + header_size > recv_size)
+  {
+    if (!socket_set_rxrd(socket, rxrd + recv_size))
+      return 0;
+
+    return -1;
+  }
+
+  *data = malloc(sizeof(u8) * header->size);
 
   if (offset + header->size > mask + 1)
   {
-    u8 upper_size = mask + 1 - offset;
+    u16 upper_size = mask + 1 - offset;
 
-    if (!wiz811_read_multiple_reg(start_address, data, upper_size))
+    if (!wiz811_read_multiple_reg(start_address, *data, upper_size))
       return 0;
 
-    data += upper_size;
-
-    u8 left_size = header->size - upper_size;
-    if (!wiz811_read_multiple_reg(base, data, left_size))
+    u16 left_size = header->size - upper_size;
+    if (!wiz811_read_multiple_reg(base, *data + upper_size, left_size))
       return 0;
   }
   else
   {
-    if (!wiz811_read_multiple_reg(start_address, data, header->size))
+    if (!wiz811_read_multiple_reg(start_address, *data, header->size))
       return 0;
   }
 
-  if (!socket_set_rxrd(socket, rxrd + header_size + header->size))
+  if (!socket_set_rxrd(socket, rxrd + (u16)header_size + header->size))
     return 0;
 
   return 1;

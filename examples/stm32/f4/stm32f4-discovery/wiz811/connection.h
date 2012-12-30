@@ -28,6 +28,8 @@
 #define SOCKET_MODE_2 WIZ_SNMR_CLOSED
 #define SOCKET_MODE_3 WIZ_SNMR_CLOSED
 
+#define CONN_WIZ_DELAY 120000000
+
 struct udp_socket udp;
 
 u8 connection_setup(void)
@@ -36,7 +38,7 @@ u8 connection_setup(void)
   wiz811_setup();
 
   u32 i;
-  for (i = 0; i < 120000000; i++)
+  for (i = 0; i < CONN_WIZ_DELAY; i++)
     __asm__("nop");
 
   printf("wiz setup done\r\n");
@@ -92,12 +94,48 @@ u8 connection_setup(void)
   return 1;
 }
 
+// Check incoming ip address
+u8 connection_checkip(u8* ip)
+{
+  u8 inc[4] = {0};
+  ip_to_bytes(DESTINATION_IP, inc);
+
+  u8 i;
+  for (i = 0; i < 4; ++i)
+    if (inc[i] != ip[i])
+      return 0;
+
+  return 1;
+}
+
 // Connection update
 u8 connection_run(u8* data, u8 size)
 {
+  (void)data;
+  (void)size;
+
   if (!udp_update(&udp))
     return 0;
 
+  u8* recv_data = NULL;
+
+  if (udp.size_read)
+  {
+    if (udp_read(&udp, &recv_data) > 0)
+    {
+      if (udp.header.size > 4)
+      {
+	printf("BAD!\r\n");
+	return 0;
+      }
+
+      free(recv_data);
+
+      udp_clear_header(&udp.header);
+    }
+  }
+
+#if 0
   if (!udp.to_send)
   {
     if (!udp_write(&udp, data, size))
@@ -105,6 +143,7 @@ u8 connection_run(u8* data, u8 size)
 
     return 2;
   }
+#endif
 
   return 1;
 }
@@ -114,6 +153,5 @@ u8 connection_close(void)
 {
   return udp_close(&udp);
 }
-
 
 #endif

@@ -237,7 +237,8 @@
 #define WIZ_SNRXRD_0 0x0428
 
 // Socket 0 base address
-#define WIZ_S0_BASE 0x4000;
+#define WIZ_S0_TX_BASE 0x4000;
+#define WIZ_S0_RX_BASE 0x6000;
 
 #define NUM_ATTEMPTS 10
 
@@ -415,9 +416,9 @@ u8 wiz811_write_reg(u16 addr, u8 value)
   return res;
 }
 
-u8 wiz811_write_multiple_reg(u16 addr, u8* data, u8 size)
+u8 wiz811_write_multiple_reg(u16 addr, u8* data, u16 size)
 {
-  u8 i;
+  u16 i;
 
   for (i = 0; i < size; ++i)
     if (!wiz811_write_reg(addr + i, data[i]))
@@ -426,15 +427,13 @@ u8 wiz811_write_multiple_reg(u16 addr, u8* data, u8 size)
   return 1;
 }
 
-u8 wiz811_read_multiple_reg(u16 addr, u8* data, u8 size)
+u8 wiz811_read_multiple_reg(u16 addr, u8* data, u16 size)
 {
-  u8 i;
+  u16 i;
 
   for (i = 0; i < size; ++i)
-  {
     if (!wiz811_read_reg(addr + i, &data[i]))
       return 0;
-  }
 
   return 1;
 }
@@ -666,12 +665,12 @@ u8 wiz811_socket_recv_size(u16 socket, u16* size)
 {
   u8 temp;
 
-  if (wiz811_read_reg(WIZ_SNRXRSR_0 | (socket << 8), &temp))
+  if (!wiz811_read_reg(WIZ_SNRXRSR_0 | (socket << 8), &temp))
     return 0;
 
   *size = (u16)temp << 8;
 
-  if (wiz811_read_reg((WIZ_SNRXRSR_0 | (socket << 8)) + 1, &temp))
+  if (!wiz811_read_reg((WIZ_SNRXRSR_0 | (socket << 8)) + 1, &temp))
     return 0;
 
   *size |= temp;

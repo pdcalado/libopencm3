@@ -97,21 +97,41 @@ int udp_write(udp_socket_t udp, u8* data, u16 size)
   return 1;
 }
 
-int udp_read(udp_socket_t udp, u8* data)
+int udp_read(udp_socket_t udp, u8** data)
 {
   if (!udp->size_read)
     return -1;
 
-  // read procedure
-  if (!socket_read(udp->id, &udp->header, data))
-    return 0;
+  if (udp->size_read > 8)
+  {
+    int rv = socket_read(udp->id, &udp->header, data);
 
+    // read procedure
+    if (rv > 0)
+    {
+      if (!socket_recv(udp->id))
+	return 0;
+
+      if (udp->size_read < 8 + udp->header.size)
+	udp->size_read = 0;
+      else
+	udp->size_read -= 8 + udp->header.size;
+
+      return 1;
+    }
+    else if (!rv)
+    {
+      return 0;
+    }
+  }
+
+  // Something was wrong
   if (!socket_recv(udp->id))
     return 0;
 
-  udp->size_read -= 8 + udp->header.size;
+  udp->size_read = 0;
 
-  return 1;
+  return -1;
 }
 
 int udp_update_tx(udp_socket_t udp)
@@ -166,6 +186,16 @@ int udp_update_tx(udp_socket_t udp)
   return 1;
 }
 
+void udp_clear_header(udp_header_t header)
+{
+  u8 i;
+  for (i = 0; i < 4; ++i)
+    header->ip[i] = 0;
+
+  header->port = 0;
+  header->size = 0;
+}
+
 int udp_update(udp_socket_t udp)
 {
   int rv = 1;
@@ -173,16 +203,16 @@ int udp_update(udp_socket_t udp)
   switch (udp->state)
   {
     case UDP_IDLE:
-      /* if (!udp->size_read) */
-      /* { */
-      /* 	// check if we have received data */
-      /* 	u16 recv_size; */
-      /* 	if (!socket_recv_size(udp->id, &recv_size)) */
-      /* 	  return 0; */
+      if (!udp->size_read)
+      {
+	// check if we have received data
+	u16 recv_size;
+	if (!socket_recv_size(udp->id, &recv_size))
+	  return 0;
 
-      /* 	if (recv_size) */
-      /* 	  udp->size_read = recv_size; */
-      /* } */
+	if (recv_size)
+	  udp->size_read = recv_size;
+      }
 
       // if not then goto tx if there's data to be sent
       if (udp->to_send)

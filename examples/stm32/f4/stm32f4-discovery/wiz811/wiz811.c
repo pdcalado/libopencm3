@@ -75,8 +75,6 @@ u8 initialize(void)
   if (!lis_basic_init())
     return 0;
 
-  // configure g
-
   m_data.fs_g = lis_fs_g();
 
   m_data.isnew = 0;
@@ -95,6 +93,11 @@ u8 update(void)
   led_set(LED_BLUE);
   led_clear(LED_GREEN);
 
+  u8* dummy_data = NULL;
+  if (!connection_run(dummy_data, 0))
+    return 0;
+
+#if 0
   if (lis_check_new_xyz())
   {
     lis_read_xyz(m_data.data);
@@ -111,6 +114,7 @@ u8 update(void)
     else if (!rv)
       return 0;
   }
+#endif
 
   return 1;
 }
@@ -155,8 +159,6 @@ int main(void)
   leds_setup(LED_GREEN | LED_RED | LED_BLUE);
   serial_setup();
 
-
-#if 0
   m_state = ST_INIT;
 
   while (1)
@@ -189,8 +191,6 @@ int main(void)
     if (m_state == ST_DONE)
       return 0;
   }
-
-#endif
 
   return 0;
 }
