@@ -3,6 +3,8 @@
 
 #include "socket.h"
 
+#define UDP_TIMEOUT 100000000
+
 typedef enum
 {
   // Init state
@@ -124,7 +126,7 @@ int udp_update_tx(udp_socket_t udp)
     udp->state = UDP_IDLE;
     udp->to_send = 0;
 
-    u32 timeout = 100000000;
+    u32 timeout = UDP_TIMEOUT;
 
     while (1)
     {

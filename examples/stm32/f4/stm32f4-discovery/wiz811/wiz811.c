@@ -26,6 +26,7 @@
 #include <libopencm3/stm32/f4/rcc.h>
 #include <libopencm3/stm32/f4/gpio.h>
 #include "leds.h"
+#include "temperature.h"
 #include "serial.h"
 #include "lis302dl.h"
 #include "connection.h"
@@ -41,17 +42,17 @@ typedef enum
 
 main_state m_state;
 
-struct motion_data
+struct packet_data
 {
   // Configured G top value
   u8 fs_g;
   // Motion data
   u8 data[3];
+  // Temperature
+  float tchip;
   // Is this chunk new
   u8 isnew;
 } m_data;
-
-typedef struct motion_data* motion_data_t;
 
 u16 cycles = 0;
 
@@ -66,6 +67,8 @@ u8 initialize(void)
   printf("Welcome\r\n");
 
   led_set(LED_GREEN);
+
+  temperature_setup();
 
   lis_setup();
 
@@ -96,9 +99,10 @@ u8 update(void)
   {
     lis_read_xyz(m_data.data);
 
-    u8 data[4];
+    u8 data[8];
     data[0] = m_data.fs_g;
-    memcpy(data + 1, m_data.data, 3);
+    memcpy(&data[1], m_data.data, 3);
+    memcpy(&data[4], (void*)&m_data.tchip, sizeof(float));
 
     u8 rv = connection_run(data, 4);
 
@@ -151,6 +155,8 @@ int main(void)
   leds_setup(LED_GREEN | LED_RED | LED_BLUE);
   serial_setup();
 
+
+#if 0
   m_state = ST_INIT;
 
   while (1)
@@ -183,6 +189,8 @@ int main(void)
     if (m_state == ST_DONE)
       return 0;
   }
+
+#endif
 
   return 0;
 }
